@@ -1,0 +1,300 @@
+import { auth } from "@/lib/auth/auth";
+import { getDb } from "@/lib/db/mongodb";
+import { insertAsset, listOrSeedAssets } from "@/lib/db/assets-db";
+import { NextRequest, NextResponse } from "next/server";
+
+const defaultLands = [
+  {
+    name: "Willow Creek Corn Estate",
+    location: "1245 Harvest Road",
+    city: "Ames",
+    state: "IA",
+    zip: "50010",
+    crop: "Cropland",
+    area: "820 acres",
+    leaseDuration: "5 years",
+    profit: "$342,000/year",
+    vehicles: ["Silo", "Workshop", "Equipment Shed"],
+    animals: [],
+    fertilizers: ["Urea", "NPK", "Potash"],
+    tenants: [],
+    coordinates: { lat: 42.0308, lng: -93.6319 },
+    parcelNumber: "IA-AM-820",
+    zoning: "Agricultural",
+    irrigation: "Center Pivot",
+    leaseHolderName: "Midwest Grain Partners",
+    purchasePrice: "$6,850,000",
+    purchaseDate: "2019-04-20",
+    currentValue: "$7,650,000",
+    revenue: "$540,000/year",
+    expenses: {
+      seeds: "$58,000/year",
+      labor: "$42,000/year",
+      equipment: "$36,000/year",
+      fertilizers: "$24,000/year",
+      pesticides: "$14,000/year",
+      irrigation: "$9,000/year",
+      taxes: "$10,000/year",
+      insurance: "$4,500/year",
+      other: "$500/year",
+    },
+    yieldPerAcre: "191 bushels/acre",
+    expectedYield: "156,620 bushels",
+    lastHarvestDate: "2025-10-18",
+    nextHarvestDate: "2026-10-12",
+    plantingDate: "2026-04-14",
+    cropSeason: "Summer",
+    image: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&q=80",
+  },
+  {
+    name: "Napa Valley Crest Vineyards",
+    location: "777 Silverado Trail",
+    city: "Saint Helena",
+    state: "CA",
+    zip: "94574",
+    crop: "Vineyard",
+    area: "52 acres",
+    leaseDuration: "Owned",
+    profit: "$468,000/year",
+    vehicles: ["Wine Barn", "Workshop", "Cold Storage"],
+    animals: ["Sheep"],
+    fertilizers: ["Organic", "Compost"],
+    tenants: [],
+    coordinates: { lat: 38.5049, lng: -122.4694 },
+    parcelNumber: "CA-NV-052",
+    zoning: "Agricultural",
+    irrigation: "Drip",
+    leaseHolderName: "Owner Operated",
+    purchasePrice: "$11,800,000",
+    purchaseDate: "2016-09-15",
+    currentValue: "$16,200,000",
+    revenue: "$860,000/year",
+    expenses: {
+      seeds: "$8,000/year",
+      labor: "$175,000/year",
+      equipment: "$62,000/year",
+      fertilizers: "$34,000/year",
+      pesticides: "$41,000/year",
+      irrigation: "$29,000/year",
+      taxes: "$31,000/year",
+      insurance: "$11,000/year",
+      other: "$1,000/year",
+    },
+    yieldPerAcre: "4.5 tons/acre",
+    expectedYield: "234 tons",
+    lastHarvestDate: "2025-09-30",
+    nextHarvestDate: "2026-09-25",
+    plantingDate: "2017-03-20",
+    cropSeason: "Autumn",
+    image: "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=800&q=80",
+  },
+  {
+    name: "Lone Star Mixed Ranch",
+    location: "88 Bluebonnet Drive",
+    city: "Abilene",
+    state: "TX",
+    zip: "79601",
+    crop: "Pasture",
+    area: "3,450 acres",
+    leaseDuration: "10 years",
+    profit: "$292,000/year",
+    vehicles: ["Main Barn", "Feed Storage", "Workshop"],
+    animals: ["Cattle", "Horse"],
+    fertilizers: ["Manure"],
+    tenants: [],
+    coordinates: { lat: 32.4487, lng: -99.7331 },
+    parcelNumber: "TX-LS-345",
+    zoning: "Rural Agricultural",
+    irrigation: "Well",
+    leaseHolderName: "West Texas Land & Cattle",
+    purchasePrice: "$4,450,000",
+    purchaseDate: "2020-01-10",
+    currentValue: "$5,180,000",
+    revenue: "$620,000/year",
+    expenses: {
+      seeds: "$12,000/year",
+      labor: "$145,000/year",
+      equipment: "$76,000/year",
+      fertilizers: "$9,000/year",
+      pesticides: "$4,000/year",
+      irrigation: "$18,000/year",
+      taxes: "$29,000/year",
+      insurance: "$34,000/year",
+      other: "$1,000/year",
+    },
+    yieldPerAcre: "1.1 head/acre",
+    expectedYield: "3,750 head capacity",
+    lastHarvestDate: "2025-11-05",
+    nextHarvestDate: "2026-11-10",
+    plantingDate: "2026-03-18",
+    cropSeason: "Yearly",
+    image: "https://images.unsplash.com/photo-1516467508483-a7212febe31a?w=800&q=80",
+  },
+  {
+    name: "Cascadia Timber Holdings",
+    location: "Hwy 101 West",
+    city: "Olympia",
+    state: "WA",
+    zip: "98501",
+    crop: "Timber",
+    area: "10,800 acres",
+    leaseDuration: "Owned",
+    profit: "$355,000/year",
+    vehicles: ["Machinery Yard", "Maintenance Workshop"],
+    animals: [],
+    fertilizers: ["None"],
+    tenants: [],
+    coordinates: { lat: 47.0379, lng: -122.9007 },
+    parcelNumber: "WA-CT-108",
+    zoning: "Forestry",
+    irrigation: "Rainfed",
+    leaseHolderName: "Evergreen Forestry",
+    purchasePrice: "$24,500,000",
+    purchaseDate: "2012-08-30",
+    currentValue: "$30,800,000",
+    revenue: "$1,200,000/year",
+    expenses: {
+      seeds: "$0/year",
+      labor: "$345,000/year",
+      equipment: "$168,000/year",
+      fertilizers: "$0/year",
+      pesticides: "$85,000/year",
+      irrigation: "$0/year",
+      taxes: "$210,000/year",
+      insurance: "$35,000/year",
+      other: "$2,000/year",
+    },
+    yieldPerAcre: "6.8 tons/acre",
+    expectedYield: "73,000 tons",
+    lastHarvestDate: "2025-08-21",
+    nextHarvestDate: "2026-08-28",
+    plantingDate: "2026-04-04",
+    cropSeason: "Perennial",
+    image: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&q=80",
+  },
+  {
+    name: "MetroLeaf Hydroponics",
+    location: "45 Industrial Ave",
+    city: "Toronto",
+    state: "ON",
+    zip: "M5V 1J1",
+    crop: "Greenhouse",
+    area: "2.6 acres",
+    leaseDuration: "5 years",
+    profit: "$392,000/year",
+    vehicles: ["Greenhouse Block A", "Packaging Shed", "Workshop"],
+    animals: [],
+    fertilizers: ["Nutrient A/B", "Organic"],
+    tenants: [],
+    coordinates: { lat: 43.6425, lng: -79.3871 },
+    parcelNumber: "ON-ML-026",
+    zoning: "Commercial",
+    irrigation: "Municipal",
+    leaseHolderName: "CityGreens Produce Ltd",
+    purchasePrice: "$1,900,000",
+    purchaseDate: "2023-03-01",
+    currentValue: "$2,220,000",
+    revenue: "$980,000/year",
+    expenses: {
+      seeds: "$75,000/year",
+      labor: "$290,000/year",
+      equipment: "$86,000/year",
+      fertilizers: "$58,000/year",
+      pesticides: "$16,000/year",
+      irrigation: "$31,000/year",
+      taxes: "$24,000/year",
+      insurance: "$7,000/year",
+      other: "$1,000/year",
+    },
+    yieldPerAcre: "148 tons/acre",
+    expectedYield: "385 tons",
+    lastHarvestDate: "2026-03-22",
+    nextHarvestDate: "2026-04-29",
+    plantingDate: "2026-03-30",
+    cropSeason: "Indoor-Yearly",
+    image: "https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?w=800&q=80",
+  },
+  {
+    name: "Prairie Pulse Organics",
+    location: "Range Road 214",
+    city: "Saskatoon",
+    state: "SK",
+    zip: "S7K 3J8",
+    crop: "Pulses",
+    area: "1,250 acres",
+    leaseDuration: "7 years",
+    profit: "$214,000/year",
+    vehicles: ["Grain Bin", "Workshop", "Fuel Depot"],
+    animals: [],
+    fertilizers: ["Phosphate", "Micronutrients"],
+    tenants: [],
+    coordinates: { lat: 52.1579, lng: -106.6702 },
+    parcelNumber: "SK-PP-125",
+    zoning: "Agricultural",
+    irrigation: "Rainfed",
+    leaseHolderName: "Prairie Pulse Co-op",
+    purchasePrice: "$5,200,000",
+    purchaseDate: "2021-05-24",
+    currentValue: "$5,960,000",
+    revenue: "$470,000/year",
+    expenses: {
+      seeds: "$82,000/year",
+      labor: "$56,000/year",
+      equipment: "$38,000/year",
+      fertilizers: "$30,000/year",
+      pesticides: "$17,000/year",
+      irrigation: "$0/year",
+      taxes: "$19,000/year",
+      insurance: "$12,000/year",
+      other: "$2,000/year",
+    },
+    yieldPerAcre: "36 bushels/acre",
+    expectedYield: "45,000 bushels",
+    lastHarvestDate: "2025-09-27",
+    nextHarvestDate: "2026-09-30",
+    plantingDate: "2026-05-10",
+    cropSeason: "Summer",
+    image: "https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=800&q=80",
+  }
+];
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await auth.api.getSession({
+      headers: req.headers,
+    });
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const db = await getDb();
+    const lands = await listOrSeedAssets(db, "lands", session.user.id, defaultLands);
+
+    return NextResponse.json({ lands });
+  } catch (error) {
+    console.error("Error in GET /api/lands:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await auth.api.getSession({
+      headers: req.headers,
+    });
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const db = await getDb();
+    const land = await insertAsset(db, "lands", session.user.id, body);
+
+    return NextResponse.json({ land }, { status: 201 });
+  } catch (error) {
+    console.error("Error in POST /api/lands:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}

@@ -1,0 +1,18 @@
+# Installed dependencies
+/node_modules/
+
+# Generated Next.js output
+/.next/
+/out/
+/build/
+
+# Local environment variables and credentials
+.env
+.env.*
+!.env.example
+
+# Generated files and logs
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
