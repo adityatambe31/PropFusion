@@ -1,0 +1,31 @@
+
+import { defineConfig, devices } from "@playwright/test";
+
+const baseURL =
+  process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
+
+export default defineConfig({
+  testDir: "./tests/e2e",
+  fullyParallel: false,
+  retries: 0,
+
+  use: {
+    baseURL,
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+  },
+
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
+
+  webServer: {
+    command: "npm run dev -- --hostname localhost",
+    url: `${baseURL.replace(/\/$/, "")}/auth/sign-in`,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000,
+  },
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Loader } from "lucide-react";
@@ -8,12 +8,10 @@ import { Mail, Loader } from "lucide-react";
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
-  const [redirecting, setRedirecting] = useState(false);
+
 
   useEffect(() => {
     if (!token) return;
-
-    setRedirecting(true);
     const callbackURL = "/auth/post-signin-redirect";
     const target = `/api/auth/verify-email?token=${encodeURIComponent(token)}&callbackURL=${encodeURIComponent(callbackURL)}`;
     window.location.replace(target);
@@ -22,7 +20,7 @@ function VerifyEmailContent() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black px-4">
       <div className="w-full max-w-md text-center">
-        {redirecting ? (
+  {token ? (
           <div className="space-y-4">
             <div className="flex justify-center">
               <Loader className="w-12 h-12 text-blue-600 animate-spin" />

@@ -11,7 +11,6 @@ import {
   BookOpen,
   FileSpreadsheet,
 } from "lucide-react";
-import * as XLSX from "xlsx";
 import ReportPDFDocument, {
   type ReportData,
   type ReportMode,
@@ -67,13 +66,22 @@ export default function ReportPDFActions({ report }: Props) {
     [report],
   );
 
-  const handleExcelExport = useCallback(() => {
-    setMenuOpen(null);
 
-    // Create workbook
-    const wb = XLSX.utils.book_new();
+const handleExcelExport = useCallback(async () => {
+  setMenuOpen(null);
+  setIsDownloading(true);
 
-    // Summary sheet with stats
+  try {
+    // Load ExcelJS only when an export is requested
+    const { default: ExcelJS } = await import("exceljs");
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "PropFusion";
+    workbook.created = new Date();
+
+    // 1. Summary worksheet
+    const summarySheet = workbook.addWorksheet("Summary");
+
     const summaryData = [
       ["Report Title", report.title],
       ["Date Range", report.dateRange],
@@ -81,34 +89,88 @@ export default function ReportPDFActions({ report }: Props) {
       ["Generated", new Date().toLocaleString()],
       [],
       ["Metric", "Value"],
-      ...report.stats.map((s) => [s.label, s.value]),
+      ...report.stats.map((stat) => [
+        stat.label,
+        stat.value,
+      ]),
     ];
-    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, summarySheet, "Summary");
 
-    // Data sheet with table
-    const dataHeader = report.columns;
+    summarySheet.addRows(summaryData);
+
+    summarySheet.getRow(6).font = { bold: true };
+
+    summarySheet.columns = [
+      { width: 28 },
+      { width: 40 },
+    ];
+
+    // 2. Data worksheet
+    const dataSheet = workbook.addWorksheet("Data");
+
+    dataSheet.addRow(report.columns);
+
     const dataRows = report.rows.map((row) =>
-      report.columns.map((col) => row[col] || "—"),
+      report.columns.map((column) =>
+        row[column] ?? "—"
+      )
     );
-    const dataSheet = XLSX.utils.aoa_to_sheet([dataHeader, ...dataRows]);
 
-    // Auto-width columns
-    const colWidths = report.columns.map((col, i) => ({
-      wch:
-        Math.max(
-          col.length,
-          ...dataRows.map((row) => String(row[i] || "").length),
-        ) + 2,
-    }));
-    dataSheet["!cols"] = colWidths;
+    dataSheet.addRows(dataRows);
 
-    XLSX.utils.book_append_sheet(wb, dataSheet, "Data");
+    // Style header row
+    dataSheet.getRow(1).font = { bold: true };
 
-    // Download
-    const filename = `${report.title.replace(/\s+/g, "_").toLowerCase()}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    XLSX.writeFile(wb, filename);
-  }, [report]);
+    // Automatically adjust column widths
+    dataSheet.columns = report.columns.map(
+      (column, index) => ({
+        width: Math.min(
+          60,
+          Math.max(
+            column.length,
+            ...dataRows.map((row) =>
+              String(row[index] ?? "").length
+            )
+          ) + 2
+        ),
+      })
+    );
+
+    // 3. Generate XLSX file
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    // Copy into a Blob-compatible byte array
+    const bytes = new Uint8Array(buffer.byteLength);
+    bytes.set(new Uint8Array(buffer));
+
+    const blob = new Blob([bytes], {
+      type:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    // 4. Download workbook
+    const filename =
+      `${report.title.replace(/\s+/g, "_").toLowerCase()}_` +
+      `${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = filename;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  } catch (error) {
+    console.error("Excel export failed:", error);
+  } finally {
+    setIsDownloading(false);
+  }
+}, [report]);
+
 
   const handleCSVExport = useCallback(() => {
     setMenuOpen(null);

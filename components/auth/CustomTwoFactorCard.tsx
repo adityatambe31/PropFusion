@@ -39,6 +39,7 @@ export function CustomTwoFactorCard({ classNames }: CustomTwoFactorCardProps) {
     try {
       const result = await authClient.twoFactor.enable({
         password,
+        method: "totp",
       });
 
       if (result.error) {
@@ -47,14 +48,16 @@ export function CustomTwoFactorCard({ classNames }: CustomTwoFactorCardProps) {
         return;
       }
 
-      if (result.data?.totpURI) {
-        // Generate QR code from TOTP URI
-        const qrUrl = await QRCode.toDataURL(result.data.totpURI);
+      if (result.data?.method === "totp") {
+        const { totpURI, backupCodes } = result.data;
+        const qrUrl = await QRCode.toDataURL(totpURI);
         setQrCodeUrl(qrUrl);
-        setTotpUri(result.data.totpURI);
-        setBackupCodes(result.data.backupCodes || []);
+        setTotpUri(totpURI);
+        setBackupCodes(backupCodes);
         setStep("qr");
         toast.success("Scan the QR code with your authenticator app");
+      } else {
+        toast.error("The server did not return TOTP setup details");
       }
     } catch (error) {
       toast.error((error as Error)?.message || "Failed to enable 2FA");
