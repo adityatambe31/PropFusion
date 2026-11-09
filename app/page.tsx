@@ -8,17 +8,13 @@ import {
   Play,
   Home as HomeIcon,
   ChevronRight,
-  Mail,
-  Phone,
   MapPin,
   Facebook,
   Twitter,
   Instagram,
   Youtube,
-  MessageCircle,
   ArrowUpRight,
   Star,
-  Users,
   Building,
   TrendingUp,
   X,
@@ -27,7 +23,6 @@ import {
   Clock,
   ShieldCheck,
   UserCheck,
-  ChevronDown,
 } from "lucide-react";
 import { useSession } from "@/lib/auth/auth-client";
 import { useRouter } from "next/navigation";
@@ -59,6 +54,30 @@ function useScrollReveal(threshold = 0.15) {
   }, [threshold]);
 
   return { ref, isVisible };
+}
+
+type RevealCardProps = {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+  distance?: number;
+};
+
+function RevealCard({ children, className = "", delay = 0, distance = 30 }: RevealCardProps) {
+  const { ref, isVisible } = useScrollReveal(0.15);
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? "translateY(0)" : `translateY(${distance}px)`,
+        transitionDelay: `${delay}ms`,
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 function StaggerContainer({
@@ -231,28 +250,13 @@ export default function Home() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const heroRef = useRef<HTMLDivElement>(null);
-  const statsRef = useRef<HTMLDivElement>(null);
-  const [statsVisible, setStatsVisible] = useState(false);
-
+  
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setStatsVisible(true);
-          observer.unobserve(entry.target);
-        }
-      },
-      { threshold: 0.5 },
-    );
-    if (statsRef.current) observer.observe(statsRef.current);
-    return () => observer.disconnect();
-  }, []);
 
   const scrollToSection = useCallback((id: string) => {
     const el = document.getElementById(id);
@@ -271,52 +275,6 @@ export default function Home() {
       )
       : 0;
 
-  function AnimatedCounter({
-    target,
-    suffix = "",
-    prefix = "",
-  }: {
-    target: number;
-    suffix?: string;
-    prefix?: string;
-  }) {
-    const [count, setCount] = useState(0);
-    const ref = useRef<HTMLSpanElement>(null);
-    const [hasAnimated, setHasAnimated] = useState(false);
-
-    useEffect(() => {
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting && !hasAnimated) {
-            setHasAnimated(true);
-            let start = 0;
-            const duration = 2000;
-            const increment = target / (duration / 16);
-            const timer = setInterval(() => {
-              start += increment;
-              if (start >= target) {
-                setCount(target);
-                clearInterval(timer);
-              } else {
-                setCount(Math.floor(start));
-              }
-            }, 16);
-          }
-        },
-        { threshold: 0.5 },
-      );
-      if (ref.current) observer.observe(ref.current);
-      return () => observer.disconnect();
-    }, [target, hasAnimated]);
-
-    return (
-      <span ref={ref} className="tabular-nums">
-        {prefix}
-        {count.toLocaleString()}
-        {suffix}
-      </span>
-    );
-  }
 
   const categories = ["All", "Real Estate", "Agriculture", "Reports", "Alerts", "Security"];
 
@@ -839,27 +797,15 @@ export default function Home() {
           </StaggerContainer>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {valueProps.map((prop, i) => {
-              const { ref, isVisible } = useScrollReveal(0.15);
-              return (
-                <div
-                  key={prop.title}
-                  ref={ref}
-                  className="group text-center p-8 rounded-3xl bg-white/[0.02] border border-white/[0.06] hover:border-[#c9a96e]/30 hover:bg-white/[0.04] transition-all duration-500"
-                  style={{
-                    opacity: isVisible ? 1 : 0,
-                    transform: isVisible ? "translateY(0)" : "translateY(40px)",
-                    transitionDelay: `${i * 100}ms`,
-                  }}
-                >
+            {valueProps.map((prop, i) => (
+                <RevealCard key={prop.title} delay={i * 100} distance={40} className="group text-center p-8 rounded-3xl bg-white/[0.02] border border-white/[0.06] hover:border-[#c9a96e]/30 hover:bg-white/[0.04] transition-all duration-500">
                   <div className="w-16 h-16 rounded-2xl bg-[#c9a96e]/10 flex items-center justify-center mx-auto mb-5 group-hover:bg-[#c9a96e]/20 transition-colors">
                     <prop.icon size={28} className="text-[#c9a96e]" strokeWidth={1.5} />
                   </div>
                   <h3 className="font-body text-lg font-semibold text-white mb-3">{prop.title}</h3>
                   <p className="font-body text-sm text-white/50 leading-relaxed">{prop.description}</p>
-                </div>
-              );
-            })}
+                </RevealCard>
+              ))}
           </div>
 
           <div className="mt-12 flex flex-wrap items-center justify-center gap-3 text-sm text-white/45">
@@ -895,25 +841,13 @@ export default function Home() {
           </StaggerContainer>
 
           <div className="grid lg:grid-cols-4 gap-6">
-            {workflowSteps.map((item, i) => {
-              const { ref, isVisible } = useScrollReveal(0.15);
-              return (
-                <div
-                  key={item.step}
-                  ref={ref}
-                  className="p-8 rounded-3xl bg-white/[0.02] border border-white/[0.06]"
-                  style={{
-                    opacity: isVisible ? 1 : 0,
-                    transform: isVisible ? "translateY(0)" : "translateY(30px)",
-                    transitionDelay: `${i * 120}ms`,
-                  }}
-                >
+            {workflowSteps.map((item, i) => (
+                <RevealCard key={item.step} delay={i * 120} distance={30} className="p-8 rounded-3xl bg-white/[0.02] border border-white/[0.06]">
                   <p className="font-body text-xs tracking-[0.3em] uppercase text-[#c9a96e] mb-4">{item.step}</p>
                   <h3 className="font-display text-2xl text-white mb-3">{item.title}</h3>
                   <p className="font-body text-sm text-white/50 leading-relaxed">{item.description}</p>
-                </div>
-              );
-            })}
+                </RevealCard>
+              ))}
           </div>
         </div>
       </section>
@@ -953,19 +887,8 @@ export default function Home() {
                 role: "Product Review",
                 image: "https://i.pravatar.cc/150?img=11",
               },
-            ].map((item, i) => {
-              const { ref, isVisible } = useScrollReveal(0.15);
-              return (
-                <div
-                  key={item.author}
-                  ref={ref}
-                  className="p-8 rounded-3xl bg-white/[0.02] border border-white/[0.06]"
-                  style={{
-                    opacity: isVisible ? 1 : 0,
-                    transform: isVisible ? "translateY(0)" : "translateY(30px)",
-                    transitionDelay: `${i * 120}ms`,
-                  }}
-                >
+            ].map((item, i) => (
+                <RevealCard key={item.author} delay={i * 120} distance={30} className="p-8 rounded-3xl bg-white/[0.02] border border-white/[0.06]">
                   <div className="flex gap-1 mb-5">
                     {Array.from({ length: 5 }).map((_, si) => (
                       <Star key={si} size={14} className="text-[#c9a96e] fill-[#c9a96e]" />
@@ -981,9 +904,8 @@ export default function Home() {
                       <p className="font-body text-xs text-white/40">{item.role}</p>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                </RevealCard>
+              ))}
           </div>
         </div>
       </section>

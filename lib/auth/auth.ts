@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
-import { MongoClient, ServerApiVersion } from "mongodb";
+import type { Db } from "mongodb";
+import { getAuthDb } from "@/lib/db/mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { twoFactor } from "better-auth/plugins";
 import { Resend } from "resend";
@@ -18,48 +19,25 @@ async function sendTransactionalEmail({
 }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    console.warn(
-      "RESEND_API_KEY is not configured. Skipping transactional email:",
-      subject,
-      "->",
-      to,
-    );
-    return;
+    throw new Error("RESEND_API_KEY is required for transactional emails");
   }
 
   const resend = new Resend(apiKey);
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: fromEmail,
     to,
     subject,
     html,
   });
+  if (error) {
+    console.error("Resend rejected transactional email:", error.name);
+    throw new Error("Unable to send transactional email");
+  }
 }
 
-const dbUrl = process.env.MONGODB_URI;
-
-let authInstance: ReturnType<typeof betterAuth> | undefined;
-
-if (dbUrl) {
-  const client = new MongoClient(dbUrl, {
-    serverApi: {
-      version: ServerApiVersion.v1,
-      strict: true,
-      deprecationErrors: true,
-    },
-    maxPoolSize: 10,
-    minPoolSize: 1,
-  });
-
-  if (!global._mongoClientPromise) {
-    global._mongoClientPromise = client.connect();
-  }
-
-  const db = client.db("propfusion");
-
+function createPropFusionAuth(db: Db) {
   const appBaseURL = resolveAppURL();
-
-  authInstance = betterAuth({
+  return betterAuth({
     database: mongodbAdapter(db),
     appName: "PropFusion",
     baseURL: appBaseURL,
@@ -149,11 +127,18 @@ if (dbUrl) {
       },
       changeEmail: {
         enabled: true,
-        sendChangeEmailVerification: async (data) => {
+        sendChangeEmailVerification: async (data: {
+  user: {
+    name: string;
+    email: string;
+  };
+  newEmail: string;
+  url: string;
+}) => {
           const name = data.user.name || data.user.email.split("@")[0];
           await sendTransactionalEmail({
             to: data.newEmail,
-            subject: "Verify your new email – PropFusion",
+            subject: "Verify your new email - PropFusion",
             html: `
             <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px">
               <h2 style="color:#111;margin-bottom:8px">Verify your new email</h2>
@@ -190,13 +175,15 @@ if (dbUrl) {
   });
 }
 
-if (!authInstance) {
-  console.warn("MONGODB_URI is not defined; auth is disabled during build or local startup without a database.");
-}
+// Keep authentication optional when builds run without MongoDB settings.
+// Runtime auth endpoints already return 503 when authentication is unavailable.
+const authInstance = process.env.MONGODB_URI
+  ? createPropFusionAuth(getAuthDb())
+  : undefined;
 
-export const auth = authInstance as ReturnType<typeof betterAuth>;
+// Better Auth's adapter accepts a MongoDB Db object before the client connects.
+// The shared connection is started by the MongoDB utility when MONGODB_URI is set.
 
-// Type declaration for global
-declare global {
-  var _mongoClientPromise: Promise<MongoClient> | undefined;
-}
+// All API routes import auth directly; keep its precise plugin-aware type.
+// When unconfigured, the existing auth route handles the missing instance.
+export const auth = authInstance as NonNullable<typeof authInstance>;

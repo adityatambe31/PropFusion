@@ -16,3 +16,12 @@
 *.tsbuildinfo
 .DS_Store
 Thumbs.db
+
+# Test artifacts
+/coverage/
+/test-results/
+/playwright-report/
+
+# Local dependency backups
+/package.backup.json
+/package-lock.backup.json
